@@ -1,7 +1,14 @@
-LD=i386-elf-ld
+# Rust Compiler
 RUSTC=rustc
+
+# Linker: Combine objects, resolve links and output executable. Usually last step (after compiled)
+LD=i686-unknown-linux-gnu-ld
+
+# Assembler for Intel x86: Turn Assembly code into machine (binary) code for that processor
 NASM=nasm
-QEMU=qemu-system-i386
+
+# Simulator of OS
+QEMU=qemu-system-x86_64
 
 all: floppy.img
 
@@ -10,20 +17,20 @@ all: floppy.img
 .PHONY: clean run
 
 .rs.o:
-	$(RUSTC) -O --target i386-intel-linux --crate-type lib -o $@ --emit obj $<
-
-.asm.o:
-	$(NASM) -f elf32 -o $@ $<
-
-floppy.img: loader.bin main.bin
-	dd if=/dev/zero of=$@ bs=512 count=2 &>/dev/null
-	cat $^ | dd if=/dev/stdin of=$@ conv=notrunc &>/dev/null
+	@echo "\n-> RUSTC: Compile main.rs into main.o...\n"
+	$(RUSTC) -O --target i686-unknown-linux-gnu --crate-type lib -o $@ --emit obj $< -A warnings
 
 loader.bin: loader.asm
+	@echo "\n-> NASM: Assemble loader.asm into loader.bin...\n"
 	$(NASM) -o $@ -f bin $<
 
 main.bin: linker.ld main.o
-	$(LD) -m elf_i386 -o $@ -T $^
+	@echo "\n-> Linker: Link main.o into main.bin using linker.ld...\n"
+	$(LD) -o $@ -T $^
+
+floppy.img: loader.bin main.bin
+	@echo "\n-> Make floppy.img from loader.bin and main.bin (by directly concat?)...\n"
+	cat $^ | dd if=/dev/stdin of=$@ conv=notrunc &>/dev/null
 
 run: floppy.img
 	$(QEMU) -fda $<
